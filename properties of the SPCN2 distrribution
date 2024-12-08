@@ -1,1 +1,103 @@
+#normalization condition
+norm_cond<-function(c,d) {
+  fff <- function(x) dSPCN2(x,c,d)
+  return (as.numeric(integrate(Vectorize(fff), lower = -Inf, upper = Inf)[1]))}
 
+#CDF
+library(PSDistr)
+pSPCN2 <- function(x,c,d){
+  w1=pnorm(sign(x)*abs(x)^c)^(d)
+  w2=ppc(x,0,1,c)^d
+  if(runif(1,0,1)<0.5) return(w1) else return(w2)
+}
+
+#PDF
+dSPCN2 <- function(x,c,d){
+  w1=c*d*abs(x)^(c-1)*dnorm(abs(x)^c)*pnorm(sign(x)*abs(x)^c)^(d-1)
+  w2=d*dpc(x,0,1,c)*ppc(x,0,1,c)^(d-1)
+  if(runif(1,0,1)<0.5) return(w1) else return(w2)
+}
+
+#modal values 
+mvSPCN2=function (xd,xg,c,d){
+  res=optimize(function(x) dSPCN2(x,c,d),interval=c(xd,xg), maximum=1)$maximum
+  return(res)
+}
+
+#quantiles
+qSPCN2=function(p,c,d){
+  u1 = function(x,c,d) pSPCN2(x,c,d)-p
+  return(uniroot(u1, c(-1e06,1e06), tol = 0.0000000001, c=c, d=d)$root)
+}
+
+#pseudo-random number generator
+rSPCN2 =function(n,c,d) {
+  x=numeric(n)
+  for (i in 1:n) x[i]=qSPCN2(runif(1,0,1),c,d)
+  return(sort(x))
+}
+
+#ordinary moments
+mSPCN2=function(k,c,d) {
+  return(integral(function(x) x^k*dSPCN2(x,c,d), -Inf, Inf, reltol = 1e-12, method = "Simpson"))
+}
+
+#skewness
+g1SPCN2=function(c,d){
+  w1=mSPCN2(3,c,d)-3*mSPCN2(1,c,d)*mSPCN2(2,c,d)+2*mSPCN2(1,c,d)^3
+  w2=mSPCN2(2,c,d)-mSPCN2(1,c,d)^2
+  return(w1/w2^(1.5))
+}
+
+#kurtosis
+g2SPCN2=function(c,d){
+  w1=mSPCN2(4,c,d)-4*mSPCN2(1,c,d)*mSPCN2(3,c,d)+6*mSPCN2(1,c,d)^2*
+    mSPCN2(2,c,d)-3*mSPCN2(1,c,d)^4
+  w2=mSPCN2(2,c,d)-mSPCN2(1,c,d)^2
+  return(w1/w2^2)
+}
+
+#Bowley's measure
+bsSPCN2=function(c,d){
+  q1=qSPCN2(0.25,c,d); q2=qSPCN2(0.5,c,d)
+  q3=qSPCN2(0.75,c,d);  return((q3-2*q2+q1)/(q3-q1)) }
+
+#Moors' mesasure
+mkSPCN2=function(c,d){
+  q125=qSPCN2(0.125,c,d);  q250=qSPCN2(0.25,c,d)
+  q375=qSPCN2(0.375,c,d);  q625=qSPCN2(0.625,c,d)
+  q750=qSPCN2(0.75,c,d);  q875=qSPCN2(0.875,c,d)
+  return((q875-q625+q375-q125)/(q750-q250)) }
+
+# PDF of order statistics 
+ dosSPCN2=function(x,i,n,c,d) {
+  return(fact(n)/fact(i-1)/fact(n-i)*dSPCN2(x,c,d)*pSPCN2(x,c,d)^(i-1)
+         *(1-pSPCN2(x,c,d)^(n-i)))
+ }
+
+# moments of order statistics 
+mosSPCN2=function(k,i,n,c,d) {
+  return(integral(function(x) x^k*dosSPCN2(x,i,n,c,d), -Inf, Inf, reltol = 1e-12, method = "Simpson"))
+}
+
+#to Fisher Information Matrix
+I11 <- function(x, c, d){
+  eval(Deriv(Deriv(expression(log(c*d)+(c-1)*log(abs(x))+log(dnorm(abs(x)^c,0,1))+(d-1)*log(pnorm(sign(x)*abs(x)^c,0,1))),'c'),'c'))
+}
+I12 <- function(x, c, d){
+  eval(Deriv(Deriv(expression(log(c*d)+(c-1)*log(abs(x))+log(dnorm(abs(x)^c,0,1))+(d-1)*log(pnorm(sign(x)*abs(x)^c,0,1))),'c'),'d'))
+  }
+I21 <- function(x, c, d) return(I12(x,c,d))
+I22 <- function(x, c, d){
+  eval(Deriv(Deriv(expression(log(c*d)+(c-1)*log(abs(x))+log(dnorm(abs(x)^c,0,1))+(d-1)*log(porm(sign(x)*abs(x)^c,0,1))),'d'),'d'))
+  }
+
+#Fisher Information Matrix, integration in the interval(xd,xg)
+iSPCN2=function(c,d,xg){
+  FIM=numeric(4)
+  FIM[1]=-integral(function(x) I11(x,c,d)*dSPCN2(x,c,d), -xg, xg, reltol = 1e-9, method = "Kronrod")
+  FIM[2]=-integral(function(x) I12(x,c,d)*dSPCN2(x,c,d), -xg, xg, reltol = 1e-9, method = "Kronrod")
+  FIM[3]=FIM[2]
+  FIM[4]=-integral(function(x) I22(x,c,d)*dSPCN2(x,c,d), -xg, xg, reltol = 1e-9, method = "Kronrod")
+  return(FIM)
+}
