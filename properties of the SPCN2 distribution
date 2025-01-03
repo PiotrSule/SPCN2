@@ -101,3 +101,10 @@ iSPCN2=function(c,d,xg){
   FIM[4]=-integral(function(x) I22(x,c,d)*dSPCN2(x,c,d), -xg, xg, reltol = 1e-9, method = "Kronrod")
   return(FIM)
 }
+
+#Jeffreys prior
+jpSPCN2=function(c,d,xg){
+  FIM=numeric(4)
+  FIM=iSPCN2(c,d,xg)
+  return(sqrt(FIM[1]*FIM[4]-FIM[2]^2))
+}
